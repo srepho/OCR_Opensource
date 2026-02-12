@@ -1,0 +1,250 @@
+# Model registry: metadata for all 22 OCR models
+
+models:
+  # ── Tier 1: T4-compatible (≤8GB VRAM) ──────────────────────────
+
+  lighton_ocr:
+    name: "LightOnOCR-2-1B"
+    hf_id: "lightonai/LightOnOCR-2-1B"
+    adapter_class: "src.adapters.lighton_ocr.LightOnOCRAdapter"
+    tier: 1
+    vram_gb: 4
+    parameters: "1B"
+    api_pattern: "chat_template"
+    output_format: "markdown"
+    notes: "Strong benchmark leader, clean transformers API"
+
+  got_ocr2:
+    name: "GOT-OCR2"
+    hf_id: "stepfun-ai/GOT-OCR2_0"
+    adapter_class: "src.adapters.got_ocr2.GOTOCR2Adapter"
+    tier: 1
+    vram_gb: 4
+    parameters: "0.6B"
+    api_pattern: "custom_method"
+    output_format: "markdown"
+    notes: "Smallest VLM, custom chat method"
+
+  dots_ocr:
+    name: "dots.ocr"
+    hf_id: "NexaAIDev/dots.llm1.base"
+    adapter_class: "src.adapters.dots_ocr.DotsOCRAdapter"
+    tier: 1
+    vram_gb: 4
+    parameters: "1.6B"
+    api_pattern: "custom_method"
+    output_format: "text"
+    notes: "Document-specific small model"
+
+  deepseek_ocr:
+    name: "DeepSeek-OCR"
+    hf_id: "DeepSeek-OCR/DeepSeek-OCR"
+    adapter_class: "src.adapters.deepseek_ocr.DeepSeekOCRAdapter"
+    tier: 1
+    vram_gb: 5
+    parameters: "2B"
+    api_pattern: "custom_method"
+    output_format: "markdown"
+    notes: "DeepSeek's dedicated OCR model"
+
+  nanonets_ocr:
+    name: "Nanonets-OCR2-3B"
+    hf_id: "nanonets/Nanonets-OCR-s"
+    adapter_class: "src.adapters.nanonets_ocr.NanonetsOCRAdapter"
+    tier: 1
+    vram_gb: 6
+    parameters: "3B"
+    api_pattern: "chat_template"
+    output_format: "markdown"
+    notes: "Nanonets OCR model"
+
+  ocrflux:
+    name: "OCRFlux-3B"
+    hf_id: "Carkham/OCRFlux-3B"
+    adapter_class: "src.adapters.ocrflux.OCRFluxAdapter"
+    tier: 1
+    vram_gb: 6
+    parameters: "3B"
+    api_pattern: "toolkit_wrapped"
+    output_format: "markdown"
+    notes: "Based on Qwen2.5-VL architecture"
+
+  florence2:
+    name: "Florence-2"
+    hf_id: "microsoft/Florence-2-large"
+    adapter_class: "src.adapters.florence2.Florence2Adapter"
+    tier: 1
+    vram_gb: 3
+    parameters: "0.77B"
+    api_pattern: "custom_method"
+    output_format: "text"
+    notes: "Microsoft's vision-language model with OCR tasks"
+
+  granite_vision:
+    name: "Granite Vision 3.3 2B"
+    hf_id: "ibm-granite/granite-vision-3.3-2b"
+    adapter_class: "src.adapters.granite_vision.GraniteVisionAdapter"
+    tier: 1
+    vram_gb: 5
+    parameters: "2B"
+    api_pattern: "chat_template"
+    output_format: "markdown"
+    notes: "IBM's vision model"
+
+  doctr:
+    name: "DocTR"
+    hf_id: null  # pip package, not HF model
+    adapter_class: "src.adapters.doctr_adapter.DocTRAdapter"
+    tier: 1
+    vram_gb: 2
+    parameters: "~25M"
+    api_pattern: "traditional"
+    output_format: "text"
+    notes: "Detection + recognition pipeline, good CPU baseline"
+
+  monkey_ocr:
+    name: "MonkeyOCR-1.2B"
+    hf_id: "echo840/MonkeyOCR"
+    adapter_class: "src.adapters.monkey_ocr.MonkeyOCRAdapter"
+    tier: 1
+    vram_gb: 4
+    parameters: "1.2B"
+    api_pattern: "custom_method"
+    output_format: "markdown"
+    notes: "Specialized document OCR model"
+
+  paddleocr_vl15:
+    name: "PaddleOCR-VL-1.5"
+    hf_id: "PaddlePaddle/PaddleOCR-VL-1.5"
+    adapter_class: "src.adapters.paddleocr_vl15.PaddleOCRVL15Adapter"
+    tier: 1
+    vram_gb: 8
+    parameters: "0.9B"
+    api_pattern: "custom_method"
+    output_format: "markdown"
+    notes: "Compact document VLM, strong layout/table parsing"
+
+  qwen25_vl_3b:
+    name: "Qwen2.5-VL-3B"
+    hf_id: "Qwen/Qwen2.5-VL-3B-Instruct"
+    adapter_class: "src.adapters.qwen25_vl_3b.Qwen25VL3BAdapter"
+    tier: 1
+    vram_gb: 8
+    parameters: "3B"
+    api_pattern: "chat_template"
+    output_format: "markdown"
+    notes: "Smaller Qwen2.5-VL variant for cost/quality tradeoff"
+
+  granite_docling_258m:
+    name: "Granite-Docling-258M"
+    hf_id: "ibm-granite/granite-docling-258M"
+    adapter_class: "src.adapters.granite_docling_258m.GraniteDocling258MAdapter"
+    tier: 1
+    vram_gb: 4
+    parameters: "258M"
+    api_pattern: "custom_method"
+    output_format: "markdown"
+    notes: "Small IBM document conversion model"
+
+  # ── Tier 2: A100 required (>8GB VRAM) ──────────────────────────
+
+  olmocr:
+    name: "olmOCR"
+    hf_id: "allenai/olmOCR-7B-0225-preview"
+    adapter_class: "src.adapters.olmocr.OlmOCRAdapter"
+    tier: 2
+    vram_gb: 16
+    parameters: "7B"
+    api_pattern: "toolkit_wrapped"
+    output_format: "markdown"
+    notes: "Allen AI's OCR model, uses custom toolkit"
+
+  rolmocr:
+    name: "RolmOCR"
+    hf_id: "reducto/RolmOCR"
+    adapter_class: "src.adapters.rolmocr.RolmOCRAdapter"
+    tier: 2
+    vram_gb: 16
+    parameters: "7B"
+    api_pattern: "toolkit_wrapped"
+    output_format: "markdown"
+    notes: "Reducto's refined olmOCR"
+
+  qwen25_vl:
+    name: "Qwen2.5-VL-7B"
+    hf_id: "Qwen/Qwen2.5-VL-7B-Instruct"
+    adapter_class: "src.adapters.qwen25_vl.Qwen25VLAdapter"
+    tier: 2
+    vram_gb: 16
+    parameters: "7B"
+    api_pattern: "chat_template"
+    output_format: "markdown"
+    notes: "General VLM with strong OCR capability"
+
+  chandra:
+    name: "Chandra"
+    hf_id: "adarshxs/Chandra"
+    adapter_class: "src.adapters.chandra_adapter.ChandraAdapter"
+    tier: 2
+    vram_gb: 16
+    parameters: "7B"
+    api_pattern: "chat_template"
+    output_format: "markdown"
+    notes: "Document-specialized VLM"
+
+  # ── Traditional baselines (CPU-friendly) ────────────────────────
+
+  paddleocr:
+    name: "PaddleOCR"
+    hf_id: null
+    adapter_class: "src.adapters.paddleocr_adapter.PaddleOCRAdapter"
+    tier: "cpu"
+    vram_gb: 0
+    parameters: "~12M"
+    api_pattern: "traditional"
+    output_format: "text"
+    notes: "Baidu's OCR toolkit, detection + recognition"
+
+  easyocr:
+    name: "EasyOCR"
+    hf_id: null
+    adapter_class: "src.adapters.easyocr_adapter.EasyOCRAdapter"
+    tier: "cpu"
+    vram_gb: 0
+    parameters: "~10M"
+    api_pattern: "traditional"
+    output_format: "text"
+    notes: "Simple OCR library, supports 80+ languages"
+
+  surya:
+    name: "Surya OCR Toolkit"
+    hf_id: null
+    adapter_class: "src.adapters.surya_adapter.SuryaAdapter"
+    tier: "cpu"
+    vram_gb: 0
+    parameters: "N/A"
+    api_pattern: "traditional"
+    output_format: "text"
+    notes: "Toolkit scaffold; adapter currently fail-fast until API integration is completed"
+
+  mineru:
+    name: "MinerU"
+    hf_id: null
+    adapter_class: "src.adapters.mineru_adapter.MinerUAdapter"
+    tier: "cpu"
+    vram_gb: 0
+    parameters: "N/A"
+    api_pattern: "toolkit_wrapped"
+    output_format: "markdown"
+    notes: "Pipeline scaffold; adapter currently fail-fast until API integration is completed"
+
+  tesseract:
+    name: "Tesseract OCR"
+    hf_id: null
+    adapter_class: "src.adapters.tesseract_adapter.TesseractAdapter"
+    tier: "cpu"
+    vram_gb: 0
+    parameters: "N/A"
+    api_pattern: "traditional"
+    output_format: "text"
+    notes: "Classic OCR baseline via pytesseract"

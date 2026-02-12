@@ -1,0 +1,70 @@
+# Master benchmark configuration
+
+paths:
+  project_root: "."
+  pdf_dir: "data/pdfs"
+  image_dir: "data/images"
+  ground_truth_dir: "data/ground_truth"
+  embedded_text_dir: "data/ground_truth/embedded_text"
+  table_gt_dir: "data/ground_truth/tables"
+  sample_sets_dir: "data/sample_sets"
+  raw_outputs_dir: "results/raw_outputs"
+  metrics_dir: "results/metrics"
+  comparison_dir: "results/comparison"
+
+# PDF zip batches (relative to project root or absolute)
+zip_batches:
+  - "pds-batch-1.zip"
+  - "pds-batch-2.zip"
+  - "pds-batch-3.zip"
+  - "pds-batch-4.zip"
+  - "pds-batch-5.zip"
+
+rendering:
+  dpi: 200
+  format: "png"
+  max_pages_per_pdf: null  # null = all pages
+
+ground_truth:
+  primary_extractor: "pdfplumber"
+  cross_check_extractor: "pymupdf"
+  discrepancy_threshold: 0.05  # flag if NED > 5% between extractors
+
+sampling:
+  random_seed: 42
+  sample_sets:
+    quick_dev:
+      pages: 20
+      description: "Adapter development and debugging"
+    stratified_100:
+      pages: 100
+      docs: 20
+      pages_per_doc: 5
+      description: "Primary benchmark set"
+    table_focus:
+      pages: 50
+      description: "Pages with tables for TEDS evaluation"
+    full_benchmark:
+      pages: 300
+      description: "Comprehensive comparison set"
+
+evaluation:
+  text_metrics:
+    - ned          # Normalized Edit Distance (rapidfuzz)
+    - cer          # Character Error Rate (jiwer)
+    - wer          # Word Error Rate (jiwer)
+    - bleu         # BLEU score (sacrebleu)
+    - fuzzy_ratio  # Token sort ratio (rapidfuzz)
+  table_metrics:
+    - teds         # Tree Edit Distance based Similarity
+  composite_weights:
+    text_accuracy: 0.333   # (1-NED)*100
+    table_accuracy: 0.333  # TEDS
+    layout_score: 0.333    # Layout similarity
+
+normalization:
+  unicode: "NFKC"
+  strip_markdown: true
+  collapse_whitespace: true
+  remove_page_numbers: true
+  lowercase: false  # preserve case for evaluation

@@ -1,0 +1,9 @@
+# Tier 1 model dependencies (T4-compatible)
+-r base.txt
+torch>=2.1
+transformers>=4.40
+accelerate>=0.25
+sentencepiece>=0.1.99
+tiktoken>=0.5
+einops>=0.7
+python-doctr[torch]>=0.8

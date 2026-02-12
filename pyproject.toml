@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocr-benchmark"
+version = "0.1.0"
+description = "Benchmark framework for open-weight OCR models on Australian Insurance PDS documents"
+requires-python = ">=3.10"
+dependencies = [
+    "pypdfium2>=4.0",
+    "pdfplumber>=0.10",
+    "PyMuPDF>=1.23",
+    "Pillow>=10.0",
+    "jiwer>=3.0",
+    "rapidfuzz>=3.0",
+    "sacrebleu>=2.3",
+    "pyyaml>=6.0",
+    "tqdm>=4.65",
+    "pandas>=2.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+eval = [
+    "table-recognition-metric>=1.0",
+]
+viz = [
+    "plotly>=5.15",
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
+]
+colab-tier1 = [
+    "torch>=2.1",
+    "transformers>=4.40",
+    "accelerate>=0.25",
+    "sentencepiece>=0.1.99",
+    "tiktoken>=0.5",
+    "einops>=0.7",
+    "python-doctr[torch]>=0.8",
+]
+colab-tier2 = [
+    "torch>=2.1",
+    "transformers>=4.40",
+    "accelerate>=0.25",
+    "sentencepiece>=0.1.99",
+    "tiktoken>=0.5",
+    "einops>=0.7",
+    "python-doctr[torch]>=0.8",
+    "vllm>=0.4",
+    "qwen-vl-utils>=0.0.2",
+]
+traditional = [
+    "python-doctr[torch]>=0.8",
+    "paddleocr>=2.7",
+    "easyocr>=1.7",
+    "pytesseract>=0.3.10",
+]
+toolkits = [
+    "surya-ocr",
+    "mineru[all]",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

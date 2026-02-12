@@ -1,0 +1,5 @@
+# Optional document-toolkit dependencies (Surya + MinerU)
+# Install with: pip install -r requirements/toolkits.txt
+-r base.txt
+surya-ocr
+mineru[all]

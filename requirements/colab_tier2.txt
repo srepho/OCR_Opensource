@@ -1,0 +1,4 @@
+# Tier 2 model dependencies (A100 required)
+-r colab_tier1.txt
+vllm>=0.4
+qwen-vl-utils>=0.0.2
