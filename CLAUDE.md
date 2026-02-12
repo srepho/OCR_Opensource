@@ -170,12 +170,11 @@ The extraction script (`src/data_prep/extract_embedded_text.py`) uses `concurren
 
 ### Next Steps
 
-1. **Run Tier 1 models** on Colab T4 (`notebooks/02_tier1_benchmark.ipynb`) with `quick_dev` sample set first
-2. **Run Tier 2 models** on Colab A100 (`notebooks/03_tier2_benchmark.ipynb`)
-3. **Run traditional baselines** on CPU (`notebooks/04_traditional_baselines.ipynb`)
-4. **Run evaluation** (`notebooks/05_evaluation.ipynb`) once raw outputs exist
-5. **Generate dashboard** (`notebooks/06_results_dashboard.ipynb`)
-6. Optionally run robustness suite after clean runs complete
+1. **Pick top-5 models** — select ~5 most important/representative models from the 22 and create a streamlined way to run just those (e.g. a focused sample set config or a script/notebook). Goal: get initial results fast without running all 22 models. Consider mix of tiers (T4-capable vs A100), API patterns, and known strong performers.
+2. **Run the top-5** on Colab with `quick_dev` first, then `stratified_100`
+3. **Run evaluation + dashboard** on those results
+4. Expand to remaining models if top-5 results look good
+5. Optionally run robustness suite after clean runs complete
 
 ### Environment Note
 
