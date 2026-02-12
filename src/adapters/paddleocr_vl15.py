@@ -61,7 +61,7 @@ class PaddleOCRVL15Adapter(OCRAdapter):
 
         import torch
 
-        prompt = (
+        prompt = self._get_instruction(
             "OCR this document page and return all text in markdown. "
             "Preserve reading order, section structure, and tables."
         )
@@ -94,8 +94,7 @@ class PaddleOCRVL15Adapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         input_len = inputs["input_ids"].shape[1] if "input_ids" in inputs else 0

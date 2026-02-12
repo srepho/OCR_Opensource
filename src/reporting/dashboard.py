@@ -61,9 +61,15 @@ def load_all_results(
             evaluation = json.load(f)
 
         model_key = evaluation.get("model", model_dir.name)
+        run_label = evaluation.get("run_label", "clean")
+        coverage_rate = evaluation.get("coverage_rate", np.nan)
+        failure_rate = evaluation.get("failure_rate", np.nan)
+        rank_score = evaluation.get("ranking", {}).get("rank_score", np.nan)
 
         # Load profile if available
         profile_path = outputs_dir / model_key / "profile.json"
+        if not profile_path.exists() and run_label and run_label != "clean":
+            profile_path = outputs_dir / run_label / model_key / "profile.json"
         profile: dict = {}
         if profile_path.exists():
             with open(profile_path) as f:
@@ -75,9 +81,11 @@ def load_all_results(
 
             rows.append({
                 "model": model_key,
+                "run_label": run_label,
                 "pdf_stem": page.get("pdf_stem", ""),
                 "page_num": page.get("page_num", 0),
                 "content_type": page.get("content_type", "unknown"),
+                "status": page.get("status", "ok"),
                 # Text metrics
                 "ned": tm.get("ned", np.nan),
                 "cer": tm.get("cer", np.nan),
@@ -87,6 +95,9 @@ def load_all_results(
                 # Composite
                 "text_accuracy": comp.get("text_accuracy", np.nan),
                 "composite": comp.get("composite", np.nan),
+                "coverage_rate": coverage_rate,
+                "failure_rate": failure_rate,
+                "rank_score": rank_score,
                 # Profile (same for every page of this model)
                 "avg_time_per_page": profile.get("avg_time_per_page", np.nan),
                 "median_time_per_page": profile.get("median_time_per_page", np.nan),
@@ -116,7 +127,7 @@ def generate_summary_table(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
 
-    metric_cols = ["ned", "cer", "wer", "bleu", "fuzzy_ratio", "composite"]
+    metric_cols = ["ned", "cer", "wer", "bleu", "fuzzy_ratio", "composite", "coverage_rate", "failure_rate", "rank_score"]
     agg_dict = {col: "mean" for col in metric_cols}
 
     summary = df.groupby("model").agg(agg_dict).reset_index()
@@ -129,6 +140,9 @@ def generate_summary_table(df: pd.DataFrame) -> pd.DataFrame:
         "bleu": "bleu_mean",
         "fuzzy_ratio": "fuzzy_ratio_mean",
         "composite": "composite_score",
+        "coverage_rate": "coverage_rate",
+        "failure_rate": "failure_rate",
+        "rank_score": "rank_score",
     }, inplace=True)
 
     # Add profile columns (constant per model, take first value)
@@ -141,12 +155,13 @@ def generate_summary_table(df: pd.DataFrame) -> pd.DataFrame:
     # Round for readability
     for col in ["ned_mean", "cer_mean", "wer_mean"]:
         summary[col] = summary[col].round(4)
-    for col in ["bleu_mean", "fuzzy_ratio_mean", "composite_score"]:
+    for col in ["bleu_mean", "fuzzy_ratio_mean", "composite_score", "coverage_rate", "failure_rate", "rank_score"]:
         summary[col] = summary[col].round(2)
     summary["avg_time_per_page"] = summary["avg_time_per_page"].round(3)
     summary["peak_gpu_mb"] = summary["peak_gpu_mb"].round(1)
 
-    summary.sort_values("composite_score", ascending=False, inplace=True)
+    sort_col = "rank_score" if not summary["rank_score"].isna().all() else "composite_score"
+    summary.sort_values(sort_col, ascending=False, inplace=True)
     summary.reset_index(drop=True, inplace=True)
 
     return summary

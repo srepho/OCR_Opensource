@@ -43,7 +43,7 @@ class DotsOCRAdapter(OCRAdapter):
         device = self._resolve_device()
 
         # dots.ocr uses a specific prompt format
-        prompt = "Extract all text from this document image."
+        prompt = self._get_instruction("Extract all text from this document image.")
         inputs = self._processor(
             images=image,
             text=prompt,
@@ -53,8 +53,7 @@ class DotsOCRAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         text = self._tokenizer.decode(outputs[0], skip_special_tokens=True)

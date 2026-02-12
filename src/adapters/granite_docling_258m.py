@@ -61,7 +61,7 @@ class GraniteDocling258MAdapter(OCRAdapter):
 
         import torch
 
-        prompt = (
+        prompt = self._get_instruction(
             "Convert this document page into markdown. "
             "Preserve heading hierarchy, lists, and tables."
         )
@@ -94,8 +94,7 @@ class GraniteDocling258MAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         input_len = inputs["input_ids"].shape[1] if "input_ids" in inputs else 0

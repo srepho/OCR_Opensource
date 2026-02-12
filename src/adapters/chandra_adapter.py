@@ -48,7 +48,9 @@ class ChandraAdapter(OCRAdapter):
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": "Extract all text from this document image. Preserve layout, tables, and formatting."},
+                    {"type": "text", "text": self._get_instruction(
+                        "Extract all text from this document image. Preserve layout, tables, and formatting."
+                    )},
                 ],
             }
         ]
@@ -63,8 +65,7 @@ class ChandraAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         generated = outputs[0][inputs["input_ids"].shape[1]:]

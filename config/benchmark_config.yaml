@@ -29,6 +29,8 @@ ground_truth:
   primary_extractor: "pdfplumber"
   cross_check_extractor: "pymupdf"
   discrepancy_threshold: 0.05  # flag if NED > 5% between extractors
+  char_ratio_threshold: 0.85   # min(len_a,len_b)/max — above this, assume reading-order difference → prefer PyMuPDF
+  extra_text_threshold: 1.15   # if pdfplumber has >15% more text, prefer pdfplumber
 
 sampling:
   random_seed: 42
@@ -61,6 +63,46 @@ evaluation:
     text_accuracy: 0.333   # (1-NED)*100
     table_accuracy: 0.333  # TEDS
     layout_score: 0.333    # Layout similarity
+  ranking:
+    primary_metrics:
+      - text_accuracy
+      - table_accuracy
+      - coverage_rate
+    # Weighted score for leaderboard ordering:
+    # rank_score = ((w_text * text_accuracy) + (w_table * table_accuracy_or_text)) * coverage_rate
+    weights:
+      text_accuracy: 0.7
+      table_accuracy: 0.3
+  uncertainty:
+    bootstrap_resamples: 1000
+    confidence_level: 0.95
+    random_seed: 42
+
+inference_protocol:
+  deterministic: true
+  global_seed: 42
+  canonical_instruction: "Extract all text from this document image. Preserve layout, tables, and formatting as markdown."
+  decoding:
+    do_sample: false
+    temperature: 0.0
+    top_p: 1.0
+    max_new_tokens: 4096
+
+robustness_slices:
+  clean:
+    enabled: true
+  rotate_2deg:
+    enabled: true
+    rotate_degrees: 2.0
+  gaussian_blur:
+    enabled: true
+    gaussian_blur_radius: 1.2
+  jpeg_75:
+    enabled: true
+    jpeg_quality: 75
+  downscale_75:
+    enabled: true
+    downscale_factor: 0.75
 
 normalization:
   unicode: "NFKC"

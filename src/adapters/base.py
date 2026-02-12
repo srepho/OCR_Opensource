@@ -201,6 +201,40 @@ class OCRAdapter(ABC):
             return tables
         return []
 
+    def _get_instruction(self, default: str = "") -> str:
+        """Return the benchmark canonical instruction if set, else the default."""
+        benchmark = getattr(self, "benchmark_instruction", "")
+        return benchmark if benchmark else default
+
+    # Keys from benchmark_decoding that are safe to forward to any HF generate().
+    # Adapter-specific defaults bypass this filter (adapter authors know their model).
+    _SAFE_GENERATE_KEYS = frozenset({
+        "max_new_tokens", "max_length", "do_sample",
+        "temperature", "top_p", "top_k",
+        "num_beams", "repetition_penalty",
+        "length_penalty", "early_stopping",
+        "no_repeat_ngram_size",
+    })
+
+    def _get_generation_kwargs(self, **adapter_defaults) -> dict:
+        """Merge benchmark decoding config with adapter-specific defaults.
+
+        Adapter defaults are used as the base; benchmark_decoding overrides them.
+        This lets adapters keep model-specific params (like num_beams for Florence)
+        while still respecting the benchmark protocol.
+
+        Benchmark keys are filtered to ``_SAFE_GENERATE_KEYS`` to avoid passing
+        unknown parameters to models with strict generate() signatures.
+        """
+        base = {"max_new_tokens": 4096, "do_sample": False}
+        base.update(adapter_defaults)
+        benchmark = getattr(self, "benchmark_decoding", {})
+        if benchmark:
+            base.update(
+                {k: v for k, v in benchmark.items() if k in self._SAFE_GENERATE_KEYS}
+            )
+        return base
+
     @property
     def is_loaded(self) -> bool:
         return self._loaded

@@ -49,7 +49,9 @@ class Qwen25VLAdapter(OCRAdapter):
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": "Extract all text from this document image. Preserve the layout, tables, and formatting as markdown."},
+                    {"type": "text", "text": self._get_instruction(
+                        "Extract all text from this document image. Preserve the layout, tables, and formatting as markdown."
+                    )},
                 ],
             }
         ]
@@ -77,8 +79,7 @@ class Qwen25VLAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         generated = outputs[0][inputs["input_ids"].shape[1]:]

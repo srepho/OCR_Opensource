@@ -44,7 +44,9 @@ class OCRFluxAdapter(OCRAdapter):
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": "OCR this document page. Output all text preserving layout and tables as markdown."},
+                    {"type": "text", "text": self._get_instruction(
+                        "OCR this document page. Output all text preserving layout and tables as markdown."
+                    )},
                 ],
             }
         ]
@@ -71,8 +73,7 @@ class OCRFluxAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         generated = outputs[0][inputs["input_ids"].shape[1]:]

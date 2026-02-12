@@ -120,3 +120,76 @@ class TestBaseAdapter:
         profile = InferenceProfile()
         assert profile.wall_time_seconds == 0.0
         assert profile.gpu_memory_peak_mb == 0.0
+
+
+class TestBenchmarkProtocolHelpers:
+    """Test _get_instruction() and _get_generation_kwargs() on OCRAdapter."""
+
+    def _make_adapter(self):
+        """Create a concrete adapter subclass for testing."""
+        from src.adapters.base import OCRAdapter, OCRResult
+
+        class _StubAdapter(OCRAdapter):
+            def __init__(self):
+                super().__init__("stub")
+
+            def load_model(self):
+                pass
+
+            def ocr_page(self, image):
+                return OCRResult(text="")
+
+        return _StubAdapter()
+
+    def test_get_instruction_returns_default_when_no_benchmark(self):
+        adapter = self._make_adapter()
+        assert adapter._get_instruction("fallback prompt") == "fallback prompt"
+
+    def test_get_instruction_returns_default_when_benchmark_empty(self):
+        adapter = self._make_adapter()
+        adapter.benchmark_instruction = ""
+        assert adapter._get_instruction("fallback prompt") == "fallback prompt"
+
+    def test_get_instruction_returns_benchmark_when_set(self):
+        adapter = self._make_adapter()
+        adapter.benchmark_instruction = "canonical instruction"
+        assert adapter._get_instruction("fallback prompt") == "canonical instruction"
+
+    def test_get_generation_kwargs_defaults(self):
+        adapter = self._make_adapter()
+        kwargs = adapter._get_generation_kwargs()
+        assert kwargs == {"max_new_tokens": 4096, "do_sample": False}
+
+    def test_get_generation_kwargs_with_adapter_defaults(self):
+        adapter = self._make_adapter()
+        kwargs = adapter._get_generation_kwargs(num_beams=3)
+        assert kwargs == {"max_new_tokens": 4096, "do_sample": False, "num_beams": 3}
+
+    def test_get_generation_kwargs_benchmark_overrides_adapter(self):
+        adapter = self._make_adapter()
+        adapter.benchmark_decoding = {"max_new_tokens": 2048, "temperature": 0.0}
+        kwargs = adapter._get_generation_kwargs(num_beams=3)
+        assert kwargs["max_new_tokens"] == 2048
+        assert kwargs["temperature"] == 0.0
+        assert kwargs["num_beams"] == 3
+        assert kwargs["do_sample"] is False
+
+    def test_get_generation_kwargs_empty_benchmark_uses_defaults(self):
+        adapter = self._make_adapter()
+        adapter.benchmark_decoding = {}
+        kwargs = adapter._get_generation_kwargs(num_beams=3)
+        assert kwargs == {"max_new_tokens": 4096, "do_sample": False, "num_beams": 3}
+
+    def test_get_generation_kwargs_filters_unsafe_benchmark_keys(self):
+        adapter = self._make_adapter()
+        adapter.benchmark_decoding = {
+            "max_new_tokens": 2048,
+            "unknown_custom_param": True,
+            "another_bad_key": 42,
+            "temperature": 0.0,
+        }
+        kwargs = adapter._get_generation_kwargs()
+        assert kwargs["max_new_tokens"] == 2048
+        assert kwargs["temperature"] == 0.0
+        assert "unknown_custom_param" not in kwargs
+        assert "another_bad_key" not in kwargs

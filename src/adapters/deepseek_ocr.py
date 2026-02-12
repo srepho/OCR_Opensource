@@ -48,7 +48,9 @@ class DeepSeekOCRAdapter(OCRAdapter):
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": "OCR this document page. Output the full text with formatting preserved."},
+                    {"type": "text", "text": self._get_instruction(
+                        "OCR this document page. Output the full text with formatting preserved."
+                    )},
                 ],
             }
         ]
@@ -64,15 +66,16 @@ class DeepSeekOCRAdapter(OCRAdapter):
         except (AttributeError, TypeError):
             inputs = self._processor(
                 images=image,
-                text="OCR this document page. Output the full text with formatting preserved.",
+                text=self._get_instruction(
+                    "OCR this document page. Output the full text with formatting preserved."
+                ),
                 return_tensors="pt",
             ).to(device)
 
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         generated = outputs[0][inputs["input_ids"].shape[1]:]

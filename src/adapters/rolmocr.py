@@ -48,7 +48,7 @@ class RolmOCRAdapter(OCRAdapter):
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": (
+                    {"type": "text", "text": self._get_instruction(
                         "Return the full text content of this document page. "
                         "Preserve reading order, tables, and formatting in markdown."
                     )},
@@ -78,8 +78,7 @@ class RolmOCRAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         generated = outputs[0][inputs["input_ids"].shape[1]:]

@@ -55,7 +55,7 @@ class OlmOCRAdapter(OCRAdapter):
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": (
+                    {"type": "text", "text": self._get_instruction(
                         "Below is an image of a document page. "
                         "Return the full text content of this page in markdown format. "
                         "Preserve the reading order, tables, and formatting."
@@ -86,8 +86,7 @@ class OlmOCRAdapter(OCRAdapter):
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
-                max_new_tokens=4096,
-                do_sample=False,
+                **self._get_generation_kwargs(),
             )
 
         generated = outputs[0][inputs["input_ids"].shape[1]:]

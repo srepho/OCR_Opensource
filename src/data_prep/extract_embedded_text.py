@@ -80,10 +80,23 @@ def select_best_text(
     pymupdf_text: str,
     ned: float,
     discrepancy_threshold: float,
+    char_ratio_threshold: float = 0.85,
+    extra_text_threshold: float = 1.15,
 ) -> tuple[str, str]:
     """Select the best ground truth text from two extractors.
 
-    Returns (best_text, source) where source is 'pdfplumber', 'pymupdf', or 'both_agree'.
+    Returns (best_text, source) where source is one of:
+        'pdfplumber', 'pymupdf', 'both_agree', 'both_empty'.
+
+    Args:
+        char_ratio_threshold: When both extractors produce text within this
+            ratio of each other's length and NED > discrepancy_threshold,
+            assume the difference is reading order and prefer PyMuPDF
+            (reads column-by-column). Higher values are more conservative
+            (require more similar lengths). Default 0.85.
+        extra_text_threshold: When pdfplumber produces this factor more text
+            than PyMuPDF, prefer pdfplumber (it may capture headers/footers
+            that PyMuPDF misses). Default 1.15 (15% more).
     """
     plumber_stripped = plumber_text.strip()
     pymupdf_stripped = pymupdf_text.strip()
@@ -114,13 +127,13 @@ def select_best_text(
     cp, cm = len(plumber_stripped), len(pymupdf_stripped)
     if cp > 0 and cm > 0:
         ratio = min(cp, cm) / max(cp, cm)
-        if ratio > 0.85:
+        if ratio > char_ratio_threshold:
             # Similar amount of text, different ordering — prefer PyMuPDF
             return pymupdf_text, "pymupdf"
 
     # pdfplumber has substantially more text — it may be picking up
     # headers/footers/extra content. Use pdfplumber.
-    if cp > cm * 1.15:
+    if cp > cm * extra_text_threshold:
         return plumber_text, "pdfplumber"
 
     # PyMuPDF has more text
@@ -131,6 +144,8 @@ def extract_pdf_text(
     pdf_path: Path,
     output_dir: Path,
     discrepancy_threshold: float = 0.05,
+    char_ratio_threshold: float = 0.85,
+    extra_text_threshold: float = 1.15,
     overwrite: bool = False,
 ) -> dict:
     """Extract embedded text from a PDF using dual extractors with best-of selection.
@@ -165,7 +180,8 @@ def extract_pdf_text(
 
         # Best-of selection
         best_text, source = select_best_text(
-            plumber_text, pymupdf_text, ned, discrepancy_threshold
+            plumber_text, pymupdf_text, ned, discrepancy_threshold,
+            char_ratio_threshold, extra_text_threshold,
         )
 
         source_counts[source] += 1
@@ -209,9 +225,10 @@ def extract_pdf_text(
 
 def _extract_single_pdf(args: tuple) -> dict:
     """Worker function for multiprocessing. Takes a tuple to be picklable."""
-    pdf_path, output_dir, discrepancy_threshold, overwrite = args
+    pdf_path, output_dir, discrepancy_threshold, char_ratio_threshold, extra_text_threshold, overwrite = args
     return extract_pdf_text(
-        Path(pdf_path), Path(output_dir), discrepancy_threshold, overwrite
+        Path(pdf_path), Path(output_dir), discrepancy_threshold,
+        char_ratio_threshold, extra_text_threshold, overwrite,
     )
 
 
@@ -219,6 +236,8 @@ def extract_all_pdfs(
     pdf_dir: str | Path,
     output_dir: str | Path,
     discrepancy_threshold: float = 0.05,
+    char_ratio_threshold: float = 0.85,
+    extra_text_threshold: float = 1.15,
     overwrite: bool = False,
     max_workers: int | None = None,
 ) -> list[dict]:
@@ -233,17 +252,23 @@ def extract_all_pdfs(
     pdfs = sorted(pdf_dir.glob("*.pdf"))
     print(f"Found {len(pdfs)} PDFs for text extraction")
 
+    if not pdfs:
+        print("No PDFs found — nothing to extract.")
+        return []
+
     if max_workers is None:
-        max_workers = min(os.cpu_count() or 1, len(pdfs))
+        max_workers = max(1, min(os.cpu_count() or 1, len(pdfs)))
     print(f"Using {max_workers} worker processes")
 
     # Build args for each PDF
     work_args = [
-        (str(pdf_path), str(output_dir), discrepancy_threshold, overwrite)
+        (str(pdf_path), str(output_dir), discrepancy_threshold,
+         char_ratio_threshold, extra_text_threshold, overwrite)
         for pdf_path in pdfs
     ]
 
     all_meta = []
+    failed_pdfs = []
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(_extract_single_pdf, args): args[0]
@@ -251,12 +276,13 @@ def extract_all_pdfs(
         }
         with tqdm(total=len(futures), desc="Extracting embedded text") as pbar:
             for future in as_completed(futures):
+                pdf_name = Path(futures[future]).name
                 try:
                     meta = future.result()
                     all_meta.append(meta)
                 except Exception as e:
-                    pdf_name = Path(futures[future]).name
                     print(f"\nError processing {pdf_name}: {e}")
+                    failed_pdfs.append({"pdf": pdf_name, "error": str(e)})
                 pbar.update(1)
 
     # Sort by PDF stem for consistent ordering
@@ -275,10 +301,17 @@ def extract_all_pdfs(
 
     global_meta = {
         "total_pdfs": len(all_meta),
+        "failed_pdfs": len(failed_pdfs),
         "total_pages": total_pages,
         "pages_with_discrepancy": discrepancy_pages,
         "empty_pages": empty_pages,
         "source_selection": total_sources,
+        "selection_thresholds": {
+            "discrepancy_threshold": discrepancy_threshold,
+            "char_ratio_threshold": char_ratio_threshold,
+            "extra_text_threshold": extra_text_threshold,
+        },
+        "failures": failed_pdfs,
         "per_pdf": [{
             "pdf_stem": m["pdf_stem"],
             "total_pages": m["total_pages"],
@@ -297,11 +330,17 @@ def extract_all_pdfs(
     print(f"  Empty pages: {empty_pages}")
     print(f"  Source selection: {total_sources}")
 
+    if failed_pdfs:
+        print(f"\n  WARNING: {len(failed_pdfs)} PDFs FAILED extraction:")
+        for f_info in failed_pdfs:
+            print(f"    - {f_info['pdf']}: {f_info['error']}")
+
     return all_meta
 
 
 def main():
     import argparse
+    import sys as _sys
 
     parser = argparse.ArgumentParser(description="Extract embedded text from PDFs")
     parser.add_argument(
@@ -311,12 +350,26 @@ def main():
     args = parser.parse_args()
 
     config = load_config()
-    extract_all_pdfs(
+    gt_config = config["ground_truth"]
+    input_pdfs = sorted(Path(config["paths"]["pdf_dir"]).glob("*.pdf"))
+    all_meta = extract_all_pdfs(
         pdf_dir=config["paths"]["pdf_dir"],
         output_dir=config["paths"]["embedded_text_dir"],
-        discrepancy_threshold=config["ground_truth"]["discrepancy_threshold"],
+        discrepancy_threshold=gt_config["discrepancy_threshold"],
+        char_ratio_threshold=gt_config.get("char_ratio_threshold", 0.85),
+        extra_text_threshold=gt_config.get("extra_text_threshold", 1.15),
         overwrite=args.overwrite,
     )
+
+    # Non-zero exit only when this run had input PDFs and some failed.
+    # This avoids false failures from stale metadata when there were no PDFs.
+    if input_pdfs:
+        meta_path = Path(config["paths"]["embedded_text_dir"]) / "metadata.json"
+        if meta_path.exists():
+            with open(meta_path) as f:
+                meta = json.load(f)
+            if meta.get("failed_pdfs", 0) > 0:
+                _sys.exit(1)
 
 
 if __name__ == "__main__":

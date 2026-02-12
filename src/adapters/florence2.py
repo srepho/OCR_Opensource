@@ -56,9 +56,7 @@ class Florence2Adapter(OCRAdapter):
             generated_ids = self._model.generate(
                 input_ids=inputs["input_ids"],
                 pixel_values=inputs["pixel_values"],
-                max_new_tokens=4096,
-                do_sample=False,
-                num_beams=3,
+                **self._get_generation_kwargs(num_beams=3),
             )
 
         generated_text = self._processor.batch_decode(

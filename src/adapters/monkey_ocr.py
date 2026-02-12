@@ -49,12 +49,14 @@ class MonkeyOCRAdapter(OCRAdapter):
             text = self._model.chat(
                 self._tokenizer,
                 image,
-                "Extract all text from this document image with layout preserved.",
+                self._get_instruction(
+                    "Extract all text from this document image with layout preserved."
+                ),
             )
         except (AttributeError, TypeError):
             # Fallback: use processor-based approach
             inputs = self._tokenizer(
-                "Extract all text from this document image.",
+                self._get_instruction("Extract all text from this document image."),
                 return_tensors="pt",
             ).to(device)
 
@@ -64,7 +66,7 @@ class MonkeyOCRAdapter(OCRAdapter):
                 processor = AutoProcessor.from_pretrained(self.HF_ID, trust_remote_code=True)
                 inputs = processor(
                     images=image,
-                    text="Extract all text from this document image.",
+                    text=self._get_instruction("Extract all text from this document image."),
                     return_tensors="pt",
                 ).to(device)
             except Exception:
@@ -73,8 +75,7 @@ class MonkeyOCRAdapter(OCRAdapter):
             with torch.no_grad():
                 outputs = self._model.generate(
                     **inputs,
-                    max_new_tokens=4096,
-                    do_sample=False,
+                    **self._get_generation_kwargs(),
                 )
 
             text = self._tokenizer.decode(outputs[0], skip_special_tokens=True)

@@ -22,6 +22,32 @@ from src.evaluation.table_metrics import (
     compute_page_table_metrics,
     match_tables,
 )
+from src.pipeline.evaluator import evaluate_model, _bootstrap_mean_ci
+
+
+# ── Bootstrap CI ─────────────────────────────────────────────────
+
+
+class TestBootstrapMeanCI:
+    def test_empty_values_returns_none(self):
+        assert _bootstrap_mean_ci([]) is None
+
+    def test_single_value_returns_same(self):
+        lo, hi = _bootstrap_mean_ci([5.0])
+        assert lo == 5.0
+        assert hi == 5.0
+
+    def test_zero_resamples_returns_none(self):
+        assert _bootstrap_mean_ci([1.0, 2.0, 3.0], n_resamples=0) is None
+
+    def test_negative_resamples_returns_none(self):
+        assert _bootstrap_mean_ci([1.0, 2.0, 3.0], n_resamples=-5) is None
+
+    def test_normal_case_returns_tuple(self):
+        result = _bootstrap_mean_ci([1.0, 2.0, 3.0, 4.0, 5.0], n_resamples=100)
+        assert result is not None
+        lo, hi = result
+        assert lo <= hi
 
 
 # ── Text Metrics ──────────────────────────────────────────────────
@@ -290,3 +316,89 @@ class TestCSVSummary:
             reader = csv.DictReader(f)
             rows = list(reader)
         assert len(rows) == 2
+
+
+class TestEvaluationCoverage:
+    def test_missing_prediction_counts_as_failed_page(self, tmp_path):
+        import json
+
+        sample_set = {
+            "name": "tiny",
+            "pages": [
+                {"pdf_stem": "doc1", "page_num": 1, "content_type": "text_only"},
+                {"pdf_stem": "doc1", "page_num": 2, "content_type": "text_only"},
+            ],
+        }
+        sample_path = tmp_path / "sample.json"
+        sample_path.write_text(json.dumps(sample_set), encoding="utf-8")
+
+        gt_dir = tmp_path / "gt"
+        (gt_dir / "doc1").mkdir(parents=True)
+        (gt_dir / "doc1" / "page_001.txt").write_text("hello world", encoding="utf-8")
+        (gt_dir / "doc1" / "page_002.txt").write_text("second page", encoding="utf-8")
+
+        raw_dir = tmp_path / "raw"
+        (raw_dir / "model_a" / "doc1").mkdir(parents=True)
+        (raw_dir / "model_a" / "doc1" / "page_001.md").write_text("hello world", encoding="utf-8")
+        # page_002.md intentionally missing
+
+        result = evaluate_model(
+            model_key="model_a",
+            sample_set_path=sample_path,
+            raw_outputs_dir=raw_dir,
+            gt_text_dir=gt_dir,
+            config={
+                "normalization": {},
+                "evaluation": {
+                    "composite_weights": {"text_accuracy": 1.0, "table_accuracy": 0.0, "layout_score": 0.0},
+                    "uncertainty": {"bootstrap_resamples": 100, "confidence_level": 0.95, "random_seed": 42},
+                },
+            },
+        )
+
+        assert result["total_pages_target"] == 2
+        assert result["total_pages_evaluated"] == 2
+        assert result["pages_successful"] == 1
+        assert result["pages_failed"] == 1
+        assert result["coverage_rate"] == 50.0
+        assert result["failure_breakdown"]["missing_prediction"] == 1
+        failed = [r for r in result["per_page"] if r["status"] == "failed"]
+        assert len(failed) == 1
+        assert failed[0]["failure_reason"] == "missing_prediction"
+
+    def test_run_label_reads_slice_output_dir(self, tmp_path):
+        import json
+
+        sample_set = {
+            "name": "tiny_slice",
+            "pages": [{"pdf_stem": "doc1", "page_num": 1, "content_type": "text_only"}],
+        }
+        sample_path = tmp_path / "sample.json"
+        sample_path.write_text(json.dumps(sample_set), encoding="utf-8")
+
+        gt_dir = tmp_path / "gt"
+        (gt_dir / "doc1").mkdir(parents=True)
+        (gt_dir / "doc1" / "page_001.txt").write_text("abc", encoding="utf-8")
+
+        raw_dir = tmp_path / "raw"
+        (raw_dir / "rotate_2deg" / "model_a" / "doc1").mkdir(parents=True)
+        (raw_dir / "rotate_2deg" / "model_a" / "doc1" / "page_001.md").write_text("abc", encoding="utf-8")
+
+        result = evaluate_model(
+            model_key="model_a",
+            sample_set_path=sample_path,
+            raw_outputs_dir=raw_dir,
+            gt_text_dir=gt_dir,
+            run_label="rotate_2deg",
+            config={
+                "normalization": {},
+                "evaluation": {
+                    "composite_weights": {"text_accuracy": 1.0, "table_accuracy": 0.0, "layout_score": 0.0},
+                    "uncertainty": {"bootstrap_resamples": 50, "confidence_level": 0.95, "random_seed": 42},
+                },
+            },
+        )
+
+        assert result["run_label"] == "rotate_2deg"
+        assert result["pages_failed"] == 0
+        assert result["coverage_rate"] == 100.0
