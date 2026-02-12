@@ -25,7 +25,7 @@ class OCRFluxAdapter(OCRAdapter):
         self._processor = AutoProcessor.from_pretrained(self.HF_ID, trust_remote_code=True)
         self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             self.HF_ID,
-            torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+            torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32,
             trust_remote_code=True,
         ).to(device)
         self._model.eval()

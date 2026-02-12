@@ -23,7 +23,7 @@ class GOTOCR2Adapter(OCRAdapter):
         from transformers import AutoModel, AutoTokenizer
 
         device = self._resolve_device()
-        dtype = torch.float16 if device == "cuda" else torch.float32
+        dtype = torch.float16 if device.startswith("cuda") else torch.float32
 
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.HF_ID,

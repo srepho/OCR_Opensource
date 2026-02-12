@@ -24,14 +24,19 @@ class Qwen25VL3BAdapter(OCRAdapter):
         use_cuda = device.startswith("cuda")
 
         self._processor = AutoProcessor.from_pretrained(self.HF_ID, trust_remote_code=True)
-        self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            self.HF_ID,
-            torch_dtype=torch.float16 if use_cuda else torch.float32,
-            device_map="auto" if use_cuda else None,
-            trust_remote_code=True,
-        )
-        if not use_cuda:
-            self._model = self._model.to(device)
+        if use_cuda:
+            self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                self.HF_ID,
+                torch_dtype=torch.float16,
+                device_map="auto",
+                trust_remote_code=True,
+            )
+        else:
+            self._model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                self.HF_ID,
+                torch_dtype=torch.float32,
+                trust_remote_code=True,
+            ).to(device)
         self._model.eval()
         self._loaded = True
 

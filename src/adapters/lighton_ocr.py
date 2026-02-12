@@ -23,7 +23,7 @@ class LightOnOCRAdapter(OCRAdapter):
         from transformers import AutoModelForVision2Seq, AutoProcessor
 
         device = self._resolve_device()
-        dtype = torch.float16 if device == "cuda" else torch.float32
+        dtype = torch.float16 if device.startswith("cuda") else torch.float32
 
         self._processor = AutoProcessor.from_pretrained(self.HF_ID, trust_remote_code=True)
         self._model = AutoModelForVision2Seq.from_pretrained(

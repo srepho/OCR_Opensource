@@ -22,7 +22,7 @@ class DeepSeekOCRAdapter(OCRAdapter):
         from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
 
         device = self._resolve_device()
-        dtype = torch.float16 if device == "cuda" else torch.float32
+        dtype = torch.float16 if device.startswith("cuda") else torch.float32
 
         self._processor = AutoProcessor.from_pretrained(self.HF_ID, trust_remote_code=True)
         self._tokenizer = AutoTokenizer.from_pretrained(self.HF_ID, trust_remote_code=True)
