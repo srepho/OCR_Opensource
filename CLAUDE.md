@@ -60,16 +60,29 @@ Models are registered in `config/model_registry.yaml` with their HF ID, adapter 
 - `toolkit_wrapped` — Qwen2.5-VL backbone with custom prompting or toolkit integration (olmOCR, RolmOCR, OCRFlux, MinerU scaffold)
 - `traditional` — detection + recognition pipeline or classic OCR engines (DocTR, PaddleOCR, EasyOCR, Tesseract, Surya scaffold)
 
+### Canonical Inference Protocol
+
+`benchmark_config.yaml` defines an `inference_protocol` section with a canonical instruction and deterministic decoding params. The runner (`runner.py:198-199`) sets `benchmark_instruction` and `benchmark_decoding` on each adapter via `setattr` before `load_model()`.
+
+**Base class helpers** in `src/adapters/base.py`:
+- `_get_instruction(default)` — returns `benchmark_instruction` if set, else the adapter's hardcoded default
+- `_get_generation_kwargs(**adapter_defaults)` — merges base defaults, adapter-specific params, and benchmark decoding config. Benchmark keys are filtered through `_SAFE_GENERATE_KEYS` allowlist to avoid TypeError on strict generate() signatures.
+
+15 VLM adapters use both helpers. Florence-2 uses `_get_generation_kwargs(num_beams=3)` only (keeps `<OCR>` task token). GOT-OCR2, traditional adapters, and scaffolds are unchanged (no text prompt or HF generate).
+
 ### Configuration
 
-`config/benchmark_config.yaml` drives paths, rendering DPI, sampling params, eval metrics, and normalization settings. `config/model_registry.yaml` maps model keys to adapter classes and metadata. Both are loaded by most modules via `load_config()`.
+`config/benchmark_config.yaml` drives paths, rendering DPI, sampling params, eval metrics, normalization settings, inference protocol, robustness slices, and ranking/uncertainty config. `config/model_registry.yaml` maps model keys to adapter classes and metadata. Both are loaded by most modules via `load_config()`.
 
 ### Pipeline Orchestration
 
 `src/pipeline/runner.py` is the main execution engine:
-- `run_model_on_sample_set()` loads one adapter, iterates a sample set JSON, saves per-page `.md` + `_meta.json` + `_tables.json`, then unloads
+- `run_model_on_sample_set()` loads one adapter, sets benchmark protocol attrs, iterates a sample set JSON, saves per-page `.md` + `_meta.json` + `_tables.json`, then unloads
 - `run_all_models()` runs models sequentially with VRAM cleanup between each
-- Supports `skip_existing=True` for resumable runs
+- `run_model_robustness_suite()` runs a model across all enabled robustness slices (image transforms: rotation, blur, JPEG compression, downscale)
+- `_set_global_determinism(seed)` seeds Python, NumPy, and PyTorch for reproducible runs
+- `_apply_robustness_transform(image, transform)` applies configured image perturbations
+- Supports `skip_existing=True` for resumable runs; writes `run_manifest.json` per model
 
 ### Evaluation
 
@@ -77,6 +90,9 @@ Models are registered in `config/model_registry.yaml` with their HF ID, adapter 
 - Text metrics: NED (rapidfuzz), CER/WER (jiwer), BLEU (sacrebleu), fuzzy ratio
 - Table metrics: TEDS via `table-recognition-metric` with greedy table matching
 - Composite score: weighted average with re-normalization when components are missing
+- Coverage rate: % of pages that produced output (missing pages scored as worst-case)
+- Bootstrap confidence intervals: `_bootstrap_mean_ci()` for all aggregate metrics
+- Ranking score: `rank_score = (w_text * text_accuracy + w_table * table_accuracy) * coverage_rate`
 
 ### Ground Truth
 
@@ -93,7 +109,11 @@ The extraction script (`src/data_prep/extract_embedded_text.py`) uses `concurren
 
 1. Add entry to `config/model_registry.yaml` with `hf_id`, `adapter_class`, `tier`, `vram_gb`, `api_pattern`
 2. Create adapter file in `src/adapters/` extending `OCRAdapter`
-3. Implement `load_model()` and `ocr_page()` — use `_resolve_device()` for CUDA auto-detection, `_extract_tables()` for format-aware table parsing
+3. Implement `load_model()` and `ocr_page()`:
+   - Use `_resolve_device()` for CUDA auto-detection
+   - Use `_extract_tables()` for format-aware table parsing
+   - Use `self._get_instruction("your default prompt")` instead of hardcoding the prompt
+   - Use `**self._get_generation_kwargs()` (or with adapter-specific defaults like `num_beams=3`) instead of hardcoding `max_new_tokens`/`do_sample`
 4. The runner will pick it up by model key automatically
 
 ## Notebook Workflow (sequential)
@@ -133,3 +153,35 @@ The extraction script (`src/data_prep/extract_embedded_text.py`) uses `concurren
 - **Metrics** (`results/metrics/<model>/text_metrics.json`): per-page and aggregate scores
 - **GT metadata** (`data/ground_truth/embedded_text/metadata.json`): global stats + per-PDF source selection counts
 - **Per-PDF GT metadata** (`data/ground_truth/embedded_text/<stem>/_extraction_meta.json`): per-page NED, selected source, char counts
+- **Run manifest** (`results/raw_outputs/<model>/run_manifest.json`): records canonical instruction, decoding config, sample set, device, timing
+
+## Implementation Status (as of 2026-02-13)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Data prep (PDFs, images, GT) | Done | 97 PDFs, 7,390 pages, 4 sample sets |
+| Adapter framework (22 models) | Done | All importable and instantiable |
+| Canonical inference protocol | Done | 15 VLM adapters wired, Florence-2 decoding-only |
+| Runner (clean + robustness) | Done | Deterministic seeding, image transforms, manifests |
+| Evaluator (metrics + CIs) | Done | Coverage, bootstrap CIs, ranking score |
+| Reporting dashboard | Done | Plotly charts + HTML viewer |
+| **Actual GPU benchmark runs** | **Not started** | Need Colab T4/A100 to run notebooks 02-04 |
+| Evaluation on real outputs | Not started | Blocked on benchmark runs |
+
+### Next Steps
+
+1. **Run Tier 1 models** on Colab T4 (`notebooks/02_tier1_benchmark.ipynb`) with `quick_dev` sample set first
+2. **Run Tier 2 models** on Colab A100 (`notebooks/03_tier2_benchmark.ipynb`)
+3. **Run traditional baselines** on CPU (`notebooks/04_traditional_baselines.ipynb`)
+4. **Run evaluation** (`notebooks/05_evaluation.ipynb`) once raw outputs exist
+5. **Generate dashboard** (`notebooks/06_results_dashboard.ipynb`)
+6. Optionally run robustness suite after clean runs complete
+
+### Environment Note
+
+The `ocr_benchmark` conda environment does not exist yet on the local machine. Tests were run using the `allytest` env (`~/anaconda3/envs/allytest/bin/python`). Create the env before running GPU workloads:
+```bash
+conda create -n ocr_benchmark python=3.10
+conda activate ocr_benchmark
+pip install -e ".[viz,traditional]"
+```
